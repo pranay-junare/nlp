@@ -26,6 +26,7 @@ import evaluate
 
 import wandb
 import logging
+import argparse
 nltk.download('punkt_tab')
 
 class NGramLanguageModel:
@@ -138,11 +139,6 @@ class NGramLanguageModel:
         return top_features
     
 
-
-def load_authors(autorlist):
-    with open(autorlist, 'r') as f:
-        return [line.strip() for line in f.readlines()]
-
 def split_data(data):
     random.shuffle(data)
     split_index = int(len(data) * 0.9)  # 90% for training, 10% for development
@@ -163,8 +159,8 @@ def read_test_file(filename):
                 author_labels.append(author.strip())
     return text_data, author_labels
 
-def save_model(authors, models):
-    for author in authors:
+def save_model(authorlist, models):
+    for author in authorlist:
         author_name = os.path.splitext(os.path.basename(author))[0][:-5]
         # Save trained model
         model_file = f"trained_{author_name}.pkl"
@@ -266,21 +262,41 @@ def test_mode_model(texts,labels,tokenizer,model_name):
 ##################################################################################################
 
 
-def main():
-    autorlist = str(sys.argv[1])+".txt"
-    approach = sys.argv[3]
+def argument_parser():
+    parser = argparse.ArgumentParser(description="NGram model")
+    parser.add_argument('dataset', 
+                        type=str, 
+                        help="Dataset name (e.g., authorlist)")
+    parser.add_argument('-approach', 
+                        type=str, 
+                        choices=['generative', 'discriminative'], 
+                        required=True,
+                        help="Approach for classification (generative or discriminative)"
+                        )
+    parser.add_argument('-test', 
+                        type=str, 
+                        help="Optional test file for testing sentences")
+    args = parser.parse_args()
 
+    authorlist = [line.strip() for line in  open(args.dataset+".txt", "r").readlines()]
+    approach = args.approach
+    test = args.test
+    return authorlist, approach, test
+
+
+def main():
+    authorlist, approach, test = argument_parser()
 
     if approach == "generative":
         # Load the authors from the provided file
-        authors = load_authors(autorlist)
-        
+        authorlist = authorlist
+        print(authorlist)        
         models = {}
         dev_data = {}
         authors_data = {}
     
         # Read data for each author
-        for author_file in authors:
+        for author_file in authorlist:
             data = read_author_file(author_file)
             authors_data[author_file] = data
         
@@ -289,7 +305,7 @@ def main():
             print("Running in test mode...")
     
             # Use all data for training each author's language model (no train-dev split)
-            for author in authors:
+            for author in authorlist:
                 author_name = os.path.splitext(os.path.basename(author))[0][:-5]
                 data = authors_data[author]
                 # Using n=3 everygrams, model_type among: ["Laplace", "Lidstone" , "StupidBackoff",   "WittenBellInterpolated"]
@@ -300,7 +316,7 @@ def main():
                 models[author_name] = lm
 
                 
-            save_model(authors, models)
+            save_model(authorlist, models)
     
             # Perform classification on the test data
             test_file = sys.argv[sys.argv.index('-test') + 1]
@@ -349,7 +365,7 @@ def main():
             # Train models for each author
             print("Splitting into training and development...")
             
-            for author in authors:
+            for author in authorlist:
                 author_name = os.path.splitext(os.path.basename(author))[0][:-5]
                 data = authors_data[author]                                     #balanced_authors_data[author_name]
                 train_data, dev_data[author_name] = split_data(data)
@@ -362,13 +378,13 @@ def main():
                 models[author_name] = lm
     
     
-            save_model(authors, models)
+            save_model(authorlist, models)
             print("Results on dev set:")
             total_sentences = 0
             correct_predictions = 0
     
             # Check for each sentence in the development data if the predicted author is correct
-            for author in authors:
+            for author in authorlist:
                 author_name = os.path.splitext(os.path.basename(author))[0][:-5]
                 dev_sentences = dev_data[author_name]
     
