@@ -26,7 +26,7 @@ import evaluate
 
 import wandb
 import logging
-
+nltk.download('punkt_tab')
 
 class NGramLanguageModel:
     def __init__(self, n, model_type='Laplace'):
@@ -137,14 +137,268 @@ class NGramLanguageModel:
         
         return top_features
     
+
+
+def load_authors(autorlist):
+    with open(autorlist, 'r') as f:
+        return [line.strip() for line in f.readlines()]
+
+def split_data(data):
+    random.shuffle(data)
+    split_index = int(len(data) * 0.9)  # 90% for training, 10% for development
+    return data[:split_index], data[split_index:]
+
+def read_author_file(filename):
+    with open(filename, 'r', encoding='utf-8') as f:
+        return f.readlines()
+
+def read_test_file(filename):
+    text_data = []
+    author_labels = []
+    with open(filename, 'r', encoding='utf-8') as f:
+        for line in f:
+            if '|' in line:  # Ensure line contains both text and author
+                text, author = line.rsplit('|', 1)
+                text_data.append(text.strip())
+                author_labels.append(author.strip())
+    return text_data, author_labels
+
+def save_model(authors, models):
+    for author in authors:
+        author_name = os.path.splitext(os.path.basename(author))[0][:-5]
+        # Save trained model
+        model_file = f"trained_{author_name}.pkl"
+        with open(model_file, 'wb') as f:
+            lm = models[author_name]
+            pickle.dump(lm, f)
+        #print(f"Model for {author_name} saved as {model_file}.")
+
+def numeric_labels(labels):
+    # Map author labels to human-readable names
+    authors = ['austen', 'dickens', 'tolstoy', 'wilde']
+    num_labels = len(authors)
+    id2label = {i: author for i, author in enumerate(authors)}
+    label2id = {author: i for i, author in enumerate(authors)}
     
+    # Convert string labels to numeric labels
+    numeric_labels = [label2id[label] for label in labels]
+    return numeric_labels, num_labels, id2label, label2id
+
+def compute_metrics(eval_pred):
+    # Load accuracy metric
+    accuracy = evaluate.load('accuracy')
+    predictions, labels = eval_pred
+    predictions = np.argmax(predictions, axis=1)
+    return accuracy.compute(predictions=predictions, references=labels)
+    
+def dev_mode_model(texts,labels,tokenizer,model_name):
+    # Convert string labels to numeric labels
+    numeric_label, num_labels, id2label, label2id = numeric_labels(labels)
+    
+    # Create a DataFrame and split into train/test
+    df = pd.DataFrame({'text': texts, 'label': numeric_label})
+    train_df, test_df = train_test_split(df, test_size=0.1, random_state=42)
+    
+    # Create Hugging Face datasets
+    train_dataset = Dataset.from_pandas(train_df)
+    test_dataset = Dataset.from_pandas(test_df)
+
+    # Tokenize the dataset
+    def tokenize_function(examples):
+        return tokenizer(examples['text'], padding='max_length', truncation=True)
+    
+    # Tokenize the datasets
+    train_dataset = train_dataset.map(tokenize_function, batched=True)
+    test_dataset = test_dataset.map(tokenize_function, batched=True)
+    
+    # Now set the format for PyTorch
+    train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'label'])
+    test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'label'])
+
+    # Create the model
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
+        num_labels=num_labels,
+        id2label=id2label,
+        label2id=label2id
+    )
+
+    return model, train_dataset, test_dataset
+
+
+def test_mode_model(texts,labels,tokenizer,model_name):
+    # Convert string labels to numeric labels
+    numeric_label, num_labels, id2label, label2id = numeric_labels(labels)
+    
+    # Create a DataFrame and split into train/test
+    df = pd.DataFrame({'text': texts, 'label': numeric_label})
+    #train_df = df
+
+    train_df, test_df = train_test_split(df, test_size=0.00001, random_state=42)
+    
+    # Create Hugging Face datasets
+    train_dataset = Dataset.from_pandas(train_df)
+    test_dataset = Dataset.from_pandas(test_df)
+
+    # Tokenize the dataset
+    def tokenize_function(examples):
+        return tokenizer(examples['text'], padding='max_length', truncation=True)
+    
+    # Tokenize the datasets
+    train_dataset = train_dataset.map(tokenize_function, batched=True)
+    test_dataset = test_dataset.map(tokenize_function, batched=True)
+    
+    # Now set the format for PyTorch
+    train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'label'])
+    test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'label'])
+    
+
+
+    # Create the model
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
+        num_labels=num_labels,
+        id2label=id2label,
+        label2id=label2id
+    )
+
+    return model, train_dataset, test_dataset
+##################################################################################################
+
+
 def main():
-    authorlist_file = str(sys.argv[1])+".txt"
+    autorlist = str(sys.argv[1])+".txt"
     approach = sys.argv[3]
 
-    print(authorlist_file, approach)
+
     if approach == "generative":
-        pass
+        # Load the authors from the provided file
+        authors = load_authors(autorlist)
+        
+        models = {}
+        dev_data = {}
+        authors_data = {}
+    
+        # Read data for each author
+        for author_file in authors:
+            data = read_author_file(author_file)
+            authors_data[author_file] = data
+        
+
+        if '-test' in sys.argv:
+            print("Running in test mode...")
+    
+            # Use all data for training each author's language model (no train-dev split)
+            for author in authors:
+                author_name = os.path.splitext(os.path.basename(author))[0][:-5]
+                data = authors_data[author]
+                # Using n=3 everygrams, model_type among: ["Laplace", "Lidstone" , "StupidBackoff",   "WittenBellInterpolated"]
+                lm = NGramLanguageModel(n=3, model_type='Laplace')  
+   
+                print(f"Training {lm.model_type} LM for author: {author_name} on full dataset..."+"\n")
+                lm.train(data)
+                models[author_name] = lm
+
+                
+            save_model(authors, models)
+    
+            # Perform classification on the test data
+            test_file = sys.argv[sys.argv.index('-test') + 1]
+            test_text, test_authors = read_test_file(test_file)
+    
+            print("\nPredictions on test set:")
+            
+            total_sentences = 0
+            correct_predictions = 0
+            
+            for sentence, true_author in zip(test_text, test_authors):
+                min_perplexity = float('inf')
+                predicted_author = None
+                total_sentences += 1
+             
+                # Compare perplexity for each author model
+                for author_name, lm in models.items():
+                    perplexity = lm.calculate_perplexity([sentence])
+                    if perplexity < min_perplexity:
+                        min_perplexity = perplexity
+                        predicted_author = author_name
+            
+                # Print the predicted author for the current sentence
+                print(f"Sentence {total_sentences}: Predicted Author -> {predicted_author}, True Author -> {true_author}")
+            
+                # Check if the prediction is correct
+                if predicted_author == true_author:
+                    correct_predictions += 1
+        
+            # Calculate and print test set accuracy
+            accuracy = (correct_predictions / total_sentences) * 100 if total_sentences > 0 else 0
+            print(f"\nTest Set Accuracy: {accuracy:.2f}%")
+
+            # in a new loop extract and display the top 5 features of each trained model
+            for author_name, lm in models.items():
+                # Extract and print top features
+                top_features = lm.extract_top_features(data)
+                
+                print(f"Top 5 features with probability scores for {author_name}: {top_features}"+"\n")
+             
+    
+        else:
+            # Results on development set
+            print("Running in development mode..."+"\n")
+    
+            # Train models for each author
+            print("Splitting into training and development...")
+            
+            for author in authors:
+                author_name = os.path.splitext(os.path.basename(author))[0][:-5]
+                data = authors_data[author]                                     #balanced_authors_data[author_name]
+                train_data, dev_data[author_name] = split_data(data)
+
+                # Using n=3 everygrams, model_type among: ["Laplace", "Lidstone" , "StupidBackoff", "WittenBellInterpolated"]
+                lm = NGramLanguageModel(n=3, model_type='Laplace')  # Using trigrams, specify model_type here
+                
+                print(f"Training {lm.model_type} LM for author: {author_name}..."+"\n")
+                lm.train(train_data)
+                models[author_name] = lm
+    
+    
+            save_model(authors, models)
+            print("Results on dev set:")
+            total_sentences = 0
+            correct_predictions = 0
+    
+            # Check for each sentence in the development data if the predicted author is correct
+            for author in authors:
+                author_name = os.path.splitext(os.path.basename(author))[0][:-5]
+                dev_sentences = dev_data[author_name]
+    
+                for sentence in dev_sentences:
+                    total_sentences += 1
+                    min_perplexity = float('inf')
+                    predicted_author = None
+                    
+                    # Find the predicted author (the one with the lowest perplexity)
+                    for model_author_name, lm in models.items():
+                        perplexity = lm.calculate_perplexity([sentence])
+                        if perplexity < min_perplexity:
+                            min_perplexity = perplexity
+                            predicted_author = model_author_name
+                    
+                    # Check if the predicted author matches the actual author
+                    if predicted_author == author_name:
+                        correct_predictions += 1
+    
+                # Calculate and display the accuracy
+                accuracy = (correct_predictions / total_sentences) * 100 if total_sentences > 0 else 0
+                print(f"Accuracy {author_name} : {accuracy:.2f}%")
+
+            # in a new loop show the top 5 features of each trained model
+            for author_name, lm in models.items():
+                # Extract and print top features
+                top_features = lm.extract_top_features(data)
+                
+                print("\n"+f"Top 5 features with probability scores for {author_name}: {top_features}"+"\n")
+
     elif approach == "discriminative":
         pass
 
