@@ -139,8 +139,21 @@ class NGramLanguageModel:
     
     
 def main():
-    pass
+    authorlist_file = str(sys.argv[1])+".txt"
+    approach = sys.argv[3]
+
+    print(authorlist_file, approach)
+    if approach == "generative":
+        pass
+    elif approach == "discriminative":
+        pass
 
     
 if __name__ == "__main__":
+    '''
+        python3 classifier.py authorlist -approach generative
+        python3 classifier.py authorlist -approach generative -test test_sents.txt
+    '''
     main()
+
+
