@@ -285,7 +285,7 @@ def argument_parser():
 
 
 def main():
-    authorlist, approach, test = argument_parser()
+    authorlist, approach, test_file = argument_parser()
 
     if approach == "generative":
         # Load the authors from the provided file
@@ -301,8 +301,8 @@ def main():
             authors_data[author_file] = data
         
 
-        if '-test' in sys.argv:
-            print("Running in test mode...")
+        if test_file:
+            print("Testing mode...")
     
             # Use all data for training each author's language model (no train-dev split)
             for author in authorlist:
@@ -319,7 +319,6 @@ def main():
             save_model(authorlist, models)
     
             # Perform classification on the test data
-            test_file = sys.argv[sys.argv.index('-test') + 1]
             test_text, test_authors = read_test_file(test_file)
     
             print("\nPredictions on test set:")
@@ -356,11 +355,8 @@ def main():
                 top_features = lm.extract_top_features(data)
                 
                 print(f"Top 5 features with probability scores for {author_name}: {top_features}"+"\n")
-             
-    
         else:
-            # Results on development set
-            print("Running in development mode..."+"\n")
+            print("Development mode..."+"\n")
     
             # Train models for each author
             print("Splitting into training and development...")
@@ -421,7 +417,7 @@ def main():
     
 if __name__ == "__main__":
     '''
-        python3 classifier.py authorlist -approach generative
+        python3 classifier.py authorlist -approach generative  # Tested Working OK
         python3 classifier.py authorlist -approach generative -test test_sents.txt
     '''
     main()
