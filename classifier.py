@@ -293,9 +293,6 @@ def main():
     authorlist, approach, test_file = argument_parser()
 
     if approach == "generative":
-        # Load the authors from the provided file
-        authorlist = authorlist
-        print(authorlist)        
         models = {}
         dev_data = {}
         authors_data = {}
@@ -304,7 +301,6 @@ def main():
         for author_file in authorlist:
             data = read_author_file(author_file)
             authors_data[author_file] = data
-        
 
         if test_file:
             print("Testing mode...")
@@ -409,8 +405,8 @@ def main():
     
 if __name__ == "__main__":
     '''
-        python3 classifier.py authorlist -approach generative  # Tested Working OK
-        python3 classifier.py authorlist -approach generative -test test_sents.txt
+        python3 classifier.py authorlist -approach generative  # Tested OK
+        python3 classifier.py authorlist -approach generative -test test_sents.txt # Tested OK
     '''
     main()
 
