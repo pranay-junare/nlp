@@ -329,7 +329,7 @@ def main():
             total_sentences = 0
             correct_predictions = 0
             
-            with open("prediction.txt", "w") as pred_file:
+            with open("predictions.txt", "w") as pred_file:
                 for sentence, true_author in zip(test_text, test_authors):
                     min_perplexity = float('inf')
                     predicted_author = None

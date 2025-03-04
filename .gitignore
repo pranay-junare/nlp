@@ -2,3 +2,5 @@ trained_austen.pkl
 trained_dickens.pkl
 trained_tolstoy.pkl
 trained_wilde.pkl
+predictions.txt
+test_sents.txt
