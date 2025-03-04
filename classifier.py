@@ -29,7 +29,12 @@ import logging
 import argparse
 nltk.download('punkt_tab')
 
+
 class NGramLanguageModel:
+    '''
+        Using n=3 everygrams, model_type among: ["Laplace", "Lidstone" , "StupidBackoff", "WittenBellInterpolated"]
+        eg: lm = NGramLanguageModel(n=3, model_type='Laplace')  
+    '''
     def __init__(self, n, model_type='Laplace'):
         self.n = n
         self.model_type = model_type
@@ -93,7 +98,9 @@ class NGramLanguageModel:
         return perplexity
 
     def generate_text(self, prompt, max_words=50):
-        """Generate text given a prompt using the trained language model."""
+        """
+            Generate text given a prompt using the trained language model.
+        """
         # Tokenize the prompt
         prompt_tokens = list(word_tokenize(prompt.lower()))
         
@@ -218,7 +225,6 @@ def dev_mode_model(texts,labels,tokenizer,model_name):
         id2label=id2label,
         label2id=label2id
     )
-
     return model, train_dataset, test_dataset
 
 
@@ -259,7 +265,6 @@ def test_mode_model(texts,labels,tokenizer,model_name):
     )
 
     return model, train_dataset, test_dataset
-##################################################################################################
 
 
 def argument_parser():
@@ -314,8 +319,6 @@ def main():
                 print(f"Training {lm.model_type} LM for author: {author_name} on full dataset..."+"\n")
                 lm.train(data)
                 models[author_name] = lm
-
-                
             save_model(authorlist, models)
     
             # Perform classification on the test data
@@ -326,25 +329,28 @@ def main():
             total_sentences = 0
             correct_predictions = 0
             
-            for sentence, true_author in zip(test_text, test_authors):
-                min_perplexity = float('inf')
-                predicted_author = None
-                total_sentences += 1
-             
-                # Compare perplexity for each author model
-                for author_name, lm in models.items():
-                    perplexity = lm.calculate_perplexity([sentence])
-                    if perplexity < min_perplexity:
-                        min_perplexity = perplexity
-                        predicted_author = author_name
+            with open("prediction.txt", "w") as pred_file:
+                for sentence, true_author in zip(test_text, test_authors):
+                    min_perplexity = float('inf')
+                    predicted_author = None
+                    total_sentences += 1
+                
+                    # Compare perplexity for each author model
+                    for author_name, lm in models.items():
+                        perplexity = lm.calculate_perplexity([sentence])
+                        if perplexity < min_perplexity:
+                            min_perplexity = perplexity
+                            predicted_author = author_name
+                    output_line = f"Sentence {total_sentences}: Predicted Author -> {predicted_author}, True Author -> {true_author}\n"
+                    # print(output_line.strip())
+
+                    # Write the output to the file
+                    pred_file.write(output_line)
+                
+                    # Check if the prediction is correct
+                    if predicted_author == true_author:
+                        correct_predictions += 1
             
-                # Print the predicted author for the current sentence
-                print(f"Sentence {total_sentences}: Predicted Author -> {predicted_author}, True Author -> {true_author}")
-            
-                # Check if the prediction is correct
-                if predicted_author == true_author:
-                    correct_predictions += 1
-        
             # Calculate and print test set accuracy
             accuracy = (correct_predictions / total_sentences) * 100 if total_sentences > 0 else 0
             print(f"\nTest Set Accuracy: {accuracy:.2f}%")
@@ -353,7 +359,6 @@ def main():
             for author_name, lm in models.items():
                 # Extract and print top features
                 top_features = lm.extract_top_features(data)
-                
                 print(f"Top 5 features with probability scores for {author_name}: {top_features}"+"\n")
         else:
             print("Development mode..."+"\n")
@@ -367,7 +372,7 @@ def main():
                 train_data, dev_data[author_name] = split_data(data)
 
                 # Using n=3 everygrams, model_type among: ["Laplace", "Lidstone" , "StupidBackoff", "WittenBellInterpolated"]
-                lm = NGramLanguageModel(n=3, model_type='Laplace')  # Using trigrams, specify model_type here
+                lm = NGramLanguageModel(n=3, model_type='Laplace')
                 
                 print(f"Training {lm.model_type} LM for author: {author_name}..."+"\n")
                 lm.train(train_data)
