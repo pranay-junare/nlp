@@ -315,7 +315,6 @@ def main():
                 data = authors_data[author]
                 # Using n=3 everygrams, model_type among: ["Laplace", "Lidstone" , "StupidBackoff",   "WittenBellInterpolated"]
                 lm = NGramLanguageModel(n=3, model_type='Laplace')  
-   
                 print(f"Training {lm.model_type} LM for author: {author_name} on full dataset..."+"\n")
                 lm.train(data)
                 models[author_name] = lm
@@ -324,11 +323,9 @@ def main():
             # Perform classification on the test data
             test_text, test_authors = read_test_file(test_file)
     
-            print("\nPredictions on test set:")
-            
+            print("\nPredictions on TEST set:")
             total_sentences = 0
             correct_predictions = 0
-            
             with open("predictions.txt", "w") as pred_file:
                 for sentence, true_author in zip(test_text, test_authors):
                     min_perplexity = float('inf')
@@ -342,22 +339,18 @@ def main():
                             min_perplexity = perplexity
                             predicted_author = author_name
                     output_line = f"Sentence {total_sentences}: Predicted Author -> {predicted_author}, True Author -> {true_author}\n"
-                    # print(output_line.strip())
-
-                    # Write the output to the file
                     pred_file.write(output_line)
                 
                     # Check if the prediction is correct
                     if predicted_author == true_author:
                         correct_predictions += 1
             
-            # Calculate and print test set accuracy
             accuracy = (correct_predictions / total_sentences) * 100 if total_sentences > 0 else 0
-            print(f"\nTest Set Accuracy: {accuracy:.2f}%")
+            print(f"\nPredictions saved to predictions.txt \
+                    \nTest Set Accuracy: {accuracy:.2f}% \n")
 
-            # in a new loop extract and display the top 5 features of each trained model
+            # Display the top 5 features of each trained model
             for author_name, lm in models.items():
-                # Extract and print top features
                 top_features = lm.extract_top_features(data)
                 print(f"Top 5 features with probability scores for {author_name}: {top_features}"+"\n")
         else:
@@ -365,26 +358,23 @@ def main():
     
             # Train models for each author
             print("Splitting into training and development...")
-            
             for author in authorlist:
                 author_name = os.path.splitext(os.path.basename(author))[0][:-5]
-                data = authors_data[author]                                     #balanced_authors_data[author_name]
+                data = authors_data[author]
                 train_data, dev_data[author_name] = split_data(data)
 
-                # Using n=3 everygrams, model_type among: ["Laplace", "Lidstone" , "StupidBackoff", "WittenBellInterpolated"]
-                lm = NGramLanguageModel(n=3, model_type='Laplace')
-                
+                lm = NGramLanguageModel(n=3, model_type='Laplace')                
                 print(f"Training {lm.model_type} LM for author: {author_name}..."+"\n")
+                
                 lm.train(train_data)
                 models[author_name] = lm
-    
     
             save_model(authorlist, models)
             print("Results on dev set:")
             total_sentences = 0
             correct_predictions = 0
     
-            # Check for each sentence in the development data if the predicted author is correct
+            # Check in the development data if the predicted author is correct
             for author in authorlist:
                 author_name = os.path.splitext(os.path.basename(author))[0][:-5]
                 dev_sentences = dev_data[author_name]
@@ -394,14 +384,13 @@ def main():
                     min_perplexity = float('inf')
                     predicted_author = None
                     
-                    # Find the predicted author (the one with the lowest perplexity)
+                    # Find the predicted author having the lowest perplexity
                     for model_author_name, lm in models.items():
                         perplexity = lm.calculate_perplexity([sentence])
                         if perplexity < min_perplexity:
                             min_perplexity = perplexity
                             predicted_author = model_author_name
                     
-                    # Check if the predicted author matches the actual author
                     if predicted_author == author_name:
                         correct_predictions += 1
     
@@ -409,11 +398,9 @@ def main():
                 accuracy = (correct_predictions / total_sentences) * 100 if total_sentences > 0 else 0
                 print(f"Accuracy {author_name} : {accuracy:.2f}%")
 
-            # in a new loop show the top 5 features of each trained model
+            # Display the top 5 features of each trained model
             for author_name, lm in models.items():
-                # Extract and print top features
-                top_features = lm.extract_top_features(data)
-                
+                top_features = lm.extract_top_features(data)                
                 print("\n"+f"Top 5 features with probability scores for {author_name}: {top_features}"+"\n")
 
     elif approach == "discriminative":
