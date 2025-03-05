@@ -189,9 +189,9 @@ class TextGenerationPerplexity:
                 perplexities[author].append(perplexity)
                 
                 # Display results
-                # print(f"Prompt: '{prompt}'")
-                # print(f"Generated text: {generated_text}")
-                # print(f"Perplexity for generated text: {perplexity:.2f}\n")
+                print(f"Prompt: '{prompt}'")
+                print(f"Generated text: {generated_text}")
+                print(f"Perplexity for generated text: {perplexity:.2f}\n")
 
         # Display the tables for each author with specified truncate and wrap settings
         self.display_perplexity_tables(samples, perplexities, prompts, truncate_length=100, wrap_width=50)
