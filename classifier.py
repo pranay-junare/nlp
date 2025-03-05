@@ -341,7 +341,7 @@ def main():
                             min_perplexity = perplexity
                             predicted_author = author_name
                     output_line_complete = f"Sentence {total_sentences}: Predicted Author -> {predicted_author}, True Author -> {true_author}\n"
-                    pred_file.write(predicted_author)
+                    pred_file.write(predicted_author+"\n")
                 
                     # Check if the prediction is correct
                     if predicted_author == true_author:
