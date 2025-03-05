@@ -27,6 +27,8 @@ import evaluate
 import wandb
 import logging
 import argparse
+from tabulate import tabulate
+import textwrap
 nltk.download('punkt_tab')
 
 
@@ -144,6 +146,77 @@ class NGramLanguageModel:
         top_features = sorted_n_grams[:top_n]
         
         return top_features
+    
+
+class TextGenerationPerplexity:
+    def load_model(self, author_name):
+        model_file = f"trained_{author_name}.pkl"
+        with open(model_file, 'rb') as f:
+            return pickle.load(f)
+
+    
+    def generate_and_calculate_perplexity(self):
+        '''
+            Function to generate text and calculate perplexity for generated text
+        '''
+        authors = ["austen", "dickens", "tolstoy", "wilde"]
+        models = {}
+        prompts = [
+            "Let us hope so",
+            "What a ",
+            "At that moment",
+            "This is your doing",
+            "I am super surprised that"
+        ]
+
+        for author in authors:
+            models[author] = self.load_model(author)
+
+        # Dictionary to store generated samples and perplexities for each author
+        samples = {author: [] for author in authors}
+        perplexities = {author: [] for author in authors}
+
+        for author, model in models.items():
+            print(f"\nGenerating text and calculating perplexities for {author}:")
+
+            for prompt in prompts:
+                # Generate text
+                generated_text = model.generate_text(prompt, max_words=20)
+                samples[author].append(generated_text)
+                
+                # Calculate perplexity for the **generated text** instead of the prompt
+                perplexity = model.calculate_perplexity([generated_text])
+                perplexities[author].append(perplexity)
+                
+                # Display results
+                # print(f"Prompt: '{prompt}'")
+                # print(f"Generated text: {generated_text}")
+                # print(f"Perplexity for generated text: {perplexity:.2f}\n")
+
+        # Display the tables for each author with specified truncate and wrap settings
+        self.display_perplexity_tables(samples, perplexities, prompts, truncate_length=100, wrap_width=50)
+
+    @staticmethod
+    def truncate_text(text, length=50):
+        return text if len(text) <= length else text[:length] + '...'
+
+    @staticmethod
+    def wrap_text(text, width=50):
+        return "\n".join(textwrap.wrap(text, width))
+
+    # Function to create and display tables for each author's predictions and perplexity scores
+    def display_perplexity_tables(self, samples, perplexities, prompts, truncate_length=50, wrap_width=50):
+        for author in samples.keys():
+            # Prepare table data
+            table_data = []
+            for prompt, generated_text, perplexity in zip(prompts, samples[author], perplexities[author]):
+                # Truncate or wrap the generated text
+                truncated_text = self.truncate_text(generated_text, truncate_length)
+                wrapped_text = self.wrap_text(truncated_text, wrap_width)
+                table_data.append([self.wrap_text(prompt, wrap_width), wrapped_text, f"{perplexity:.2f}"])
+
+            print(f"\nTable for {author}:\n")
+            print(tabulate(table_data, headers=['Prompt', 'Generated Text', 'Perplexity'], tablefmt='grid'))
     
 
 def split_data(data):
@@ -415,5 +488,7 @@ if __name__ == "__main__":
         python3 classifier.py authorlist -approach generative -test test_sents.txt # Tested OK
     '''
     main()
+    text_gen=TextGenerationPerplexity()
+    text_gen.generate_and_calculate_perplexity()
 
 
