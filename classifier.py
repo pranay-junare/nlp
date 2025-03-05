@@ -147,8 +147,11 @@ class NGramLanguageModel:
     
 
 def split_data(data):
+    '''
+        90% for training, 10% for development
+    '''
     random.shuffle(data)
-    split_index = int(len(data) * 0.9)  # 90% for training, 10% for development
+    split_index = int(len(data) * 0.9) 
     return data[:split_index], data[split_index:]
 
 def read_author_file(filename):
@@ -164,6 +167,9 @@ def read_test_file(filename):
                 text, author = line.rsplit('|', 1)
                 text_data.append(text.strip())
                 author_labels.append(author.strip())
+            else:
+                text_data.append(line.strip())
+                author_labels.append("Unseen Text")
     return text_data, author_labels
 
 def save_model(authorlist, models):
@@ -334,16 +340,16 @@ def main():
                         if perplexity < min_perplexity:
                             min_perplexity = perplexity
                             predicted_author = author_name
-                    output_line = f"Sentence {total_sentences}: Predicted Author -> {predicted_author}, True Author -> {true_author}\n"
-                    pred_file.write(output_line)
+                    output_line_complete = f"Sentence {total_sentences}: Predicted Author -> {predicted_author}, True Author -> {true_author}\n"
+                    pred_file.write(predicted_author)
                 
                     # Check if the prediction is correct
                     if predicted_author == true_author:
                         correct_predictions += 1
             
             accuracy = (correct_predictions / total_sentences) * 100 if total_sentences > 0 else 0
-            print(f"\nPredictions saved to predictions.txt \
-                    \nTest Set Accuracy: {accuracy:.2f}% \n")
+            # print(f"\nPredictions saved to predictions.txt \
+            #         \nTest Set Accuracy: {accuracy:.2f}% \n")
 
             # Display the top 5 features of each trained model
             for author_name, lm in models.items():
